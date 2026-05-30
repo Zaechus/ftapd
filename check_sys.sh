@@ -41,7 +41,8 @@ print_file /sys/module/workqueue/parameters/power_efficient
 print_file /proc/sys/kernel/nmi_watchdog
 echo
 
-printf GPU
+echo GPU
+print_file /sys/module/amdgpu/parameters/abmlevel
 for card in /sys/class/drm/card?/device; do
 	echo
 	print_file "${card}/power/control"
