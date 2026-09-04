@@ -67,3 +67,7 @@ echo
 
 echo ASPM
 print_file /sys/module/pcie_aspm/parameters/policy
+echo
+
+echo CPU frequency
+cat /proc/cpuinfo | grep MHz

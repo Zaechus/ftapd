@@ -29,6 +29,17 @@ fn performance() -> io::Result<()> {
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "1\n")?;
+    // TODO: check /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors for performance
+    // TODO: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor = performance
+
+    // GPU
+    // FIXME: actually check if any of this exists first
+    fs::write("/sys/class/drm/card1/device/power/control", "on")?;
+    fs::write(
+        "/sys/class/drm/card1/device/power_dpm_force_performance_level",
+        "manual\n",
+    )?;
+    fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "1\n")?;
 
     // Audio
     fs::write("/sys/module/snd_hda_intel/parameters/power_save", "10\n")?; // maybe 0?
@@ -47,6 +58,17 @@ fn powersave() -> io::Result<()> {
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "0\n")?;
+    // TODO: check /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors for powersave
+    // TODO: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor = powersave
+
+    // GPU
+    // FIXME
+    fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "0\n")?;
+    fs::write(
+        "/sys/class/drm/card1/device/power_dpm_force_performance_level",
+        "auto\n",
+    )?;
+    fs::write("/sys/class/drm/card1/device/power/control", "auto")?;
 
     // Audio
     fs::write("/sys/module/snd_hda_intel/parameters/power_save", "1\n")?;
