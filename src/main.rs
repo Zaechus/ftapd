@@ -1,8 +1,18 @@
-use std::{fs, io, thread::sleep, time::Duration};
+use std::{env, fs, io, thread::sleep, time::Duration};
 
 fn main() -> io::Result<()> {
     #[cfg(not(target_os = "linux"))]
     compile_error!("Linux only!");
+
+    if let Some(arg) = env::args().nth(1) {
+        match arg.as_str() {
+            "powersave" => powersave()?,
+            "balanced" => balanced()?,
+            "performance" => performance()?,
+            _ => eprintln!("{arg} is not a power profile."),
+        }
+        return Ok(());
+    }
 
     let mut ac = !plugged_in();
     loop {
@@ -11,10 +21,8 @@ fn main() -> io::Result<()> {
             ac = new_ac;
 
             if ac {
-                println!("Switching to performance.");
                 performance()?;
             } else {
-                println!("Switching to powersave.");
                 powersave()?;
             }
         }
@@ -23,6 +31,7 @@ fn main() -> io::Result<()> {
 }
 
 fn performance() -> io::Result<()> {
+    println!("Switching to performance.");
     if platform_profile_choices("performance") {
         fs::write("/sys/firmware/acpi/platform_profile", "performance\n")?;
     }
@@ -39,19 +48,20 @@ fn performance() -> io::Result<()> {
         "/sys/class/drm/card1/device/power_dpm_force_performance_level",
         "manual\n",
     )?;
-    fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "1\n")?;
+    fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "1\n")?; // 3D_FULL_SCREEN
 
     // Audio
-    fs::write("/sys/module/snd_hda_intel/parameters/power_save", "10\n")?; // maybe 0?
+    fs::write("/sys/module/snd_hda_intel/parameters/power_save", "0\n")?;
     fs::write(
         "/sys/module/snd_hda_intel/parameters/power_save_controller",
-        "Y\n",
-    )?; // maybe N?
+        "N\n",
+    )?;
 
     Ok(())
 }
 
 fn powersave() -> io::Result<()> {
+    println!("Switching to powersave.");
     if platform_profile_choices("low-power") {
         fs::write("/sys/firmware/acpi/platform_profile", "low-power\n")?;
     }
@@ -63,15 +73,45 @@ fn powersave() -> io::Result<()> {
 
     // GPU
     // FIXME
+    fs::write(
+        "/sys/class/drm/card1/device/power_dpm_force_performance_level",
+        "manual\n",
+    )?;
+    fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "2\n")?; // POWER_SAVING
+    fs::write("/sys/class/drm/card1/device/power/control", "auto")?;
+
+    // Audio
+    fs::write("/sys/module/snd_hda_intel/parameters/power_save", "1\n")?;
+    fs::write(
+        "/sys/module/snd_hda_intel/parameters/power_save_controller",
+        "Y\n",
+    )?;
+
+    Ok(())
+}
+
+fn balanced() -> io::Result<()> {
+    println!("Switching to balanced.");
+    if platform_profile_choices("balanced") {
+        fs::write("/sys/firmware/acpi/platform_profile", "balanced\n")?;
+    }
+
+    // CPU
+    fs::write("/sys/devices/system/cpu/cpufreq/boost", "1\n")?;
+    // TODO: check /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors for powersave
+    // TODO: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor = powersave
+
+    // GPU
+    // FIXME
+    fs::write("/sys/class/drm/card1/device/power/control", "on")?;
     fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "0\n")?;
     fs::write(
         "/sys/class/drm/card1/device/power_dpm_force_performance_level",
         "auto\n",
     )?;
-    fs::write("/sys/class/drm/card1/device/power/control", "auto")?;
 
     // Audio
-    fs::write("/sys/module/snd_hda_intel/parameters/power_save", "1\n")?;
+    fs::write("/sys/module/snd_hda_intel/parameters/power_save", "10\n")?;
     fs::write(
         "/sys/module/snd_hda_intel/parameters/power_save_controller",
         "Y\n",
