@@ -57,6 +57,9 @@ fn performance() -> io::Result<()> {
         "N\n",
     )?;
 
+    // ASPM
+    fs::write("/sys/module/pcie_aspm/parameters/policy", "performance\n")?;
+
     Ok(())
 }
 
@@ -65,6 +68,9 @@ fn powersave() -> io::Result<()> {
     if platform_profile_choices("low-power") {
         fs::write("/sys/firmware/acpi/platform_profile", "low-power\n")?;
     }
+
+    // ASPM
+    fs::write("/sys/module/pcie_aspm/parameters/policy", "powersave\n")?;
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "0\n")?;
@@ -95,6 +101,9 @@ fn balanced() -> io::Result<()> {
     if platform_profile_choices("balanced") {
         fs::write("/sys/firmware/acpi/platform_profile", "balanced\n")?;
     }
+
+    // ASPM
+    fs::write("/sys/module/pcie_aspm/parameters/policy", "default\n")?;
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "1\n")?;
