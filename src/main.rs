@@ -5,13 +5,15 @@ fn main() -> io::Result<()> {
     compile_error!("Linux only!");
 
     if let Some(arg) = env::args().nth(1) {
-        match arg.as_str() {
-            "powersave" => powersave()?,
-            "balanced" => balanced()?,
-            "performance" => performance()?,
-            _ => eprintln!("{arg} is not a power profile."),
-        }
-        return Ok(());
+        return match arg.as_str() {
+            "powersave" => powersave(),
+            "balanced" => balanced(),
+            "performance" => performance(),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("{arg} is not a power profile."),
+            )),
+        };
     }
 
     let mut ac = !plugged_in();
@@ -32,17 +34,16 @@ fn main() -> io::Result<()> {
 
 fn performance() -> io::Result<()> {
     println!("Switching to performance.");
-    if platform_profile_choices("performance") {
+    if choices_contains("/sys/firmware/acpi/platform_profile_choices", "performance") {
         fs::write("/sys/firmware/acpi/platform_profile", "performance\n")?;
     }
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "1\n")?;
-    // TODO: check /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors for performance
-    // TODO: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor = performance
+    set_scaling_governor("performance")?;
 
-    // GPU
     // FIXME: actually check if any of this exists first
+    // GPU
     fs::write("/sys/class/drm/card1/device/power/control", "on")?;
     fs::write(
         "/sys/class/drm/card1/device/power_dpm_force_performance_level",
@@ -65,7 +66,7 @@ fn performance() -> io::Result<()> {
 
 fn powersave() -> io::Result<()> {
     println!("Switching to powersave.");
-    if platform_profile_choices("low-power") {
+    if choices_contains("/sys/firmware/acpi/platform_profile_choices", "low-power") {
         fs::write("/sys/firmware/acpi/platform_profile", "low-power\n")?;
     }
 
@@ -74,11 +75,10 @@ fn powersave() -> io::Result<()> {
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "0\n")?;
-    // TODO: check /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors for powersave
-    // TODO: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor = powersave
+    set_scaling_governor("powersave")?;
 
-    // GPU
     // FIXME
+    // GPU
     fs::write(
         "/sys/class/drm/card1/device/power_dpm_force_performance_level",
         "manual\n",
@@ -98,7 +98,7 @@ fn powersave() -> io::Result<()> {
 
 fn balanced() -> io::Result<()> {
     println!("Switching to balanced.");
-    if platform_profile_choices("balanced") {
+    if choices_contains("/sys/firmware/acpi/platform_profile_choices", "balanced") {
         fs::write("/sys/firmware/acpi/platform_profile", "balanced\n")?;
     }
 
@@ -107,13 +107,12 @@ fn balanced() -> io::Result<()> {
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "1\n")?;
-    // TODO: check /sys/devices/system/cpu/cpu*/cpufreq/scaling_available_governors for powersave
-    // TODO: /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor = powersave
+    set_scaling_governor("powersave")?;
 
-    // GPU
     // FIXME
+    // GPU
     fs::write("/sys/class/drm/card1/device/power/control", "on")?;
-    fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "0\n")?;
+    fs::write("/sys/class/drm/card1/device/pp_power_profile_mode", "0\n")?; // BOOTUP_DEFAULT
     fs::write(
         "/sys/class/drm/card1/device/power_dpm_force_performance_level",
         "auto\n",
@@ -129,8 +128,23 @@ fn balanced() -> io::Result<()> {
     Ok(())
 }
 
-fn platform_profile_choices(contains: &str) -> bool {
-    fs::read_to_string("/sys/firmware/acpi/platform_profile_choices")
+fn set_scaling_governor(scaling_governor: &str) -> io::Result<()> {
+    for d in fs::read_dir("/sys/devices/system/cpu/cpufreq/")? {
+        let d = d?.path();
+        if let Ok(d) = d.into_string()
+            && choices_contains(
+                &format!("{d}/scaling_available_governors"),
+                scaling_governor,
+            )
+        {
+            fs::write(format!("{d}/scaling_governor"), scaling_governor)?;
+        }
+    }
+    Ok(())
+}
+
+fn choices_contains(path: &str, contains: &str) -> bool {
+    fs::read_to_string(path)
         .unwrap_or_default()
         .split_whitespace()
         .any(|s| s == contains)
