@@ -33,7 +33,7 @@ fn main() -> io::Result<()> {
 }
 
 fn performance() -> io::Result<()> {
-    println!("Switching to performance.");
+    eprintln!("Switching to performance...");
     if choices_contains("/sys/firmware/acpi/platform_profile_choices", "performance") {
         fs::write("/sys/firmware/acpi/platform_profile", "performance\n")?;
     }
@@ -61,11 +61,12 @@ fn performance() -> io::Result<()> {
     // ASPM
     fs::write("/sys/module/pcie_aspm/parameters/policy", "performance\n")?;
 
+    eprintln!("Done.");
     Ok(())
 }
 
 fn powersave() -> io::Result<()> {
-    println!("Switching to powersave.");
+    eprintln!("Switching to powersave...");
     if choices_contains("/sys/firmware/acpi/platform_profile_choices", "low-power") {
         fs::write("/sys/firmware/acpi/platform_profile", "low-power\n")?;
     }
@@ -93,11 +94,12 @@ fn powersave() -> io::Result<()> {
         "Y\n",
     )?;
 
+    eprintln!("Done.");
     Ok(())
 }
 
 fn balanced() -> io::Result<()> {
-    println!("Switching to balanced.");
+    eprintln!("Switching to balanced...");
     if choices_contains("/sys/firmware/acpi/platform_profile_choices", "balanced") {
         fs::write("/sys/firmware/acpi/platform_profile", "balanced\n")?;
     }
@@ -125,6 +127,7 @@ fn balanced() -> io::Result<()> {
         "Y\n",
     )?;
 
+    eprintln!("Done.");
     Ok(())
 }
 
