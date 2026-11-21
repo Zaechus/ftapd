@@ -41,6 +41,7 @@ fn performance() -> io::Result<()> {
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "1\n")?;
     set_scaling_governor("performance")?;
+    set_energy_performance_preference("performance")?;
 
     // FIXME: actually check if any of this exists first
     // GPU
@@ -72,11 +73,12 @@ fn powersave() -> io::Result<()> {
     }
 
     // ASPM
-    fs::write("/sys/module/pcie_aspm/parameters/policy", "powersave\n")?;
+    fs::write("/sys/module/pcie_aspm/parameters/policy", "powersupersave")?;
 
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "0\n")?;
     set_scaling_governor("powersave")?;
+    set_energy_performance_preference("power")?;
 
     // FIXME
     // GPU
@@ -110,6 +112,7 @@ fn balanced() -> io::Result<()> {
     // CPU
     fs::write("/sys/devices/system/cpu/cpufreq/boost", "1\n")?;
     set_scaling_governor("powersave")?;
+    set_energy_performance_preference("balance_power")?;
 
     // FIXME
     // GPU
@@ -132,15 +135,28 @@ fn balanced() -> io::Result<()> {
 }
 
 fn set_scaling_governor(scaling_governor: &str) -> io::Result<()> {
+    set_cpu_pref(
+        "scaling_available_governors",
+        "scaling_governor",
+        scaling_governor,
+    )
+}
+
+fn set_energy_performance_preference(epp: &str) -> io::Result<()> {
+    set_cpu_pref(
+        "energy_performance_available_preferences",
+        "energy_performance_preference",
+        epp,
+    )
+}
+
+fn set_cpu_pref(available: &str, pref: &str, val: &str) -> io::Result<()> {
     for d in fs::read_dir("/sys/devices/system/cpu/cpufreq/")? {
         let d = d?.path();
         if let Ok(d) = d.into_string()
-            && choices_contains(
-                &format!("{d}/scaling_available_governors"),
-                scaling_governor,
-            )
+            && choices_contains(&format!("{d}/{available}"), val)
         {
-            fs::write(format!("{d}/scaling_governor"), scaling_governor)?;
+            fs::write(format!("{d}/{pref}"), val)?;
         }
     }
     Ok(())
